@@ -1,0 +1,27 @@
+{
+  "name": "ai-chat-app",
+  "version": "1.0.0",
+  "description": "AI Chat Application with Configuration Panel",
+  "main": "server/app.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && node app.js",
+    "client": "cd client && python -m http.server 8081 || python3 -m http.server 8081 || npx http-server -p 8081",
+    "build": "cd client && npm run build",
+    "install-all": "npm install && cd client && npm install && cd ../server && npm install"
+  },
+  "keywords": [
+    "ai",
+    "chat",
+    "vue",
+    "express"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^7.6.0"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  }
+}

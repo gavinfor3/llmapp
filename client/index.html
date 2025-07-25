@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI聊天应用</title>
+    <!-- Element Plus CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <!-- Element Plus Icons -->
+    <link rel="stylesheet" href="https://unpkg.com/@element-plus/icons-vue/dist/index.css">
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        #app {
+            min-height: 100vh;
+            display: flex;
+            padding: 0;
+        }
+        .left-panel {
+            width: 350px;
+            background: white;
+            border-right: 1px solid #ebeef5;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+        }
+        .config-panel {
+            padding: 20px;
+            border-bottom: 1px solid #ebeef5;
+            background: #f8f9fa;
+        }
+        .config-list {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .config-item-card {
+            background: #f8f9fa;
+            border: 1px solid #e4e7ed;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+        }
+        .config-item-card:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .config-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            min-height: 32px;
+            gap: 10px;
+        }
+        .config-name {
+            font-weight: 600;
+            color: #303133;
+            flex: 1;
+            min-width: 0;
+            word-break: break-all;
+        }
+
+        .config-details {
+            font-size: 12px;
+            flex: 1;
+            margin-top: auto;
+        }
+        .config-field {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        .field-label {
+            color: #606266;
+            font-weight: 500;
+        }
+        .field-value {
+            color: #909399;
+        }
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+        }
+        .chat-header {
+            padding: 20px;
+            border-bottom: 1px solid #ebeef5;
+            background: #f8f9fa;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .chat-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #fafafa;
+        }
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: flex-start;
+        }
+        .message.user {
+            justify-content: flex-end;
+        }
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+        }
+        .message.user .message-content {
+            background: #409eff;
+            color: white;
+        }
+        .message.assistant .message-content {
+            background: white;
+            border: 1px solid #e4e7ed;
+            color: #303133;
+        }
+        .chat-input {
+            padding: 20px;
+            border-top: 1px solid #ebeef5;
+            background: white;
+        }
+        .input-row {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+        .message-input {
+            flex: 1;
+        }
+        .config-row {
+            margin-bottom: 15px;
+        }
+        .config-row:last-child {
+            margin-bottom: 0;
+        }
+        .config-item {
+            flex: 1;
+        }
+        .language-switch {
+            width: 100%;
+        }
+        .config-actions {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            flex-shrink: 0;
+            flex-wrap: nowrap;
+        }
+        .config-actions .el-button {
+            flex-shrink: 0;
+            min-width: auto;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- 左侧配置面板 -->
+        <div class="left-panel">
+            <div class="config-panel">
+                <h3 style="margin: 0 0 15px 0; color: #303133;">配置管理</h3>
+                <div class="config-row">
+                    <el-button @click="showAddConfigDialog" type="primary" size="small" style="width: 100%;">
+                        <el-icon><Plus /></el-icon>
+                        添加配置
+                    </el-button>
+                </div>
+                <div class="config-row" v-if="configList.length > 0">
+                    <el-button @click="clearAllConfigs" type="danger" size="small" style="width: 100%;">
+                        <el-icon><Delete /></el-icon>
+                        清理全部
+                    </el-button>
+                </div>
+                <div class="config-row">
+                    <div class="language-switch">
+                        <el-select v-model="currentLanguage" @change="changeLanguage" style="width: 100%;">
+                            <el-option label="中文" value="zh"></el-option>
+                            <el-option label="English" value="en"></el-option>
+                        </el-select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 配置列表 -->
+            <div class="config-list">
+                <div v-if="configList.length === 0" style="text-align: center; color: #909399; margin-top: 50px;">
+                    暂无配置，请添加配置
+                </div>
+                <div v-for="(config, index) in configList" :key="config.id" class="config-item-card">
+                    <div class="config-header">
+                        <span class="config-name">{{ config.name || `配置 ${index + 1}` }}</span>
+                        <div class="config-actions">
+                            <el-button @click="selectConfig(config)" type="primary" size="small" :disabled="currentConfig?.id === config.id">
+                                {{ currentConfig?.id === config.id ? '当前' : '选择' }}
+                            </el-button>
+                            <el-button @click="editConfig(config)" type="warning" size="small">
+                                <el-icon><Edit /></el-icon>
+                            </el-button>
+                            <el-button @click="deleteConfig(config.id)" type="danger" size="small">
+                                <el-icon><Delete /></el-icon>
+                            </el-button>
+                        </div>
+                    </div>
+                    <div class="config-details">
+                        <div class="config-field">
+                            <span class="field-label">API Key:</span>
+                            <span class="field-value">{{ config.apiKey ? '***' + config.apiKey.slice(-4) : '未设置' }}</span>
+                        </div>
+                        <div class="config-field">
+                            <span class="field-label">模型/应用ID:</span>
+                            <span class="field-value">{{ config.appId || 'qwen-plus（默认）' }}</span>
+                        </div>
+                        <div class="config-field">
+                            <span class="field-label">API URL:</span>
+                            <span class="field-value">{{ config.apiUrl || '默认' }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右侧聊天容器 -->
+        <div class="chat-container">
+            <!-- 聊天头部 -->
+            <div class="chat-header">
+                <h3 style="margin: 0; color: #303133;">AI聊天助手</h3>
+                <div class="chat-actions">
+                    <el-button @click="clearMessages" type="danger" size="small">
+                        {{ t('clear_chat') }}
+                    </el-button>
+                    <el-button @click="exportMessages" type="info" size="small">
+                        {{ t('export_chat') }}
+                    </el-button>
+                </div>
+            </div>
+
+            <!-- 聊天消息区域 -->
+            <div class="chat-messages" ref="messagesContainer">
+                <div v-if="messages.length === 0" style="text-align: center; color: #909399; margin-top: 50px;">
+                    {{ t('welcome_message') }}
+                </div>
+                <div v-for="message in messages" :key="message.id" :class="['message', message.role]">
+                    <div class="message-content">
+                        {{ message.content }}
+                    </div>
+                </div>
+                <div v-if="isLoading" class="message assistant">
+                    <div class="message-content">
+                        <el-icon class="is-loading"><Loading /></el-icon>
+                        {{ t('thinking') }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 输入区域 -->
+            <div class="chat-input">
+                <div class="input-row">
+                    <el-input
+                        v-model="newMessage"
+                        type="textarea"
+                        :rows="2"
+                        :placeholder="t('input_placeholder')"
+                        @keydown.enter.prevent="handleEnter"
+                        class="message-input"
+                        :disabled="isLoading"
+                    ></el-input>
+                    <el-button
+                        type="primary"
+                        @click="sendMessage"
+                        :disabled="!newMessage.trim() || isLoading"
+                        style="height: 60px;"
+                    >
+                        {{ t('send') }}
+                    </el-button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 配置对话框 -->
+        <el-dialog v-model="configDialogVisible" :title="isEditMode ? '编辑配置' : '添加配置'" width="500px">
+            <el-form :model="dialogConfig" label-width="80px">
+                <el-form-item label="配置名称">
+                    <el-input v-model="dialogConfig.name" placeholder="请输入配置名称"></el-input>
+                </el-form-item>
+                <el-form-item label="API Key">
+                    <el-input v-model="dialogConfig.apiKey" placeholder="请输入API Key" show-password></el-input>
+                </el-form-item>
+                <el-form-item label="模型/应用ID">
+                                <el-input v-model="dialogConfig.appId" placeholder="请输入模型名称（如：qwen-plus）或应用ID"></el-input>
+                                <div style="font-size: 12px; color: #999; margin-top: 4px;">可选，支持模型名称（qwen-plus, qwen-max等）或应用ID，默认使用 qwen-plus 模型</div>
+                            </el-form-item>
+                <el-form-item label="API URL">
+                    <el-input v-model="dialogConfig.apiUrl" placeholder="请输入API URL（可选）"></el-input>
+                </el-form-item>
+            </el-form>
+            <template #footer>
+                <span class="dialog-footer">
+                    <el-button @click="configDialogVisible = false">取消</el-button>
+                    <el-button type="primary" @click="saveConfigDialog">确定</el-button>
+                </span>
+            </template>
+        </el-dialog>
+    </div>
+
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- Element Plus -->
+    <script src="https://unpkg.com/element-plus/dist/index.full.js"></script>
+    <!-- Element Plus Icons -->
+    <script src="https://unpkg.com/@element-plus/icons-vue/dist/index.iife.js"></script>
+    <!-- Axios -->
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
+    <script>
+        const { createApp, ref, reactive, onMounted, nextTick } = Vue;
+        const { ElMessage, ElMessageBox } = ElementPlus;
+
+        // 国际化文本
+        const i18n = {
+            zh: {
+                welcome_message: '欢迎使用AI聊天助手！请先配置API Key和App ID，然后开始对话。',
+                input_placeholder: '输入您的消息...',
+                send: '发送',
+                clear_chat: '清空聊天',
+                export_chat: '导出聊天',
+                thinking: 'AI正在思考中...',
+                config_saved: '配置已保存',
+                chat_cleared: '聊天记录已清空',
+                chat_exported: '聊天记录已导出',
+                please_config: '请先配置API Key和App ID',
+                send_failed: '发送失败，请重试'
+            },
+            en: {
+                welcome_message: 'Welcome to AI Chat Assistant! Please configure API Key and App ID first, then start chatting.',
+                input_placeholder: 'Type your message...',
+                send: 'Send',
+                clear_chat: 'Clear Chat',
+                export_chat: 'Export Chat',
+                thinking: 'AI is thinking...',
+                config_saved: 'Configuration saved',
+                chat_cleared: 'Chat history cleared',
+                chat_exported: 'Chat history exported',
+                please_config: 'Please configure API Key and App ID first',
+                send_failed: 'Send failed, please try again'
+            }
+        };
+
+        const app = createApp({
+            setup() {
+                const messages = ref([]);
+                const newMessage = ref('');
+                const isLoading = ref(false);
+                const currentLanguage = ref('zh');
+                const messagesContainer = ref(null);
+                const configList = ref([]);
+                const currentConfig = ref(null);
+                const configDialogVisible = ref(false);
+                const isEditMode = ref(false);
+                const dialogConfig = ref({
+                    id: null,
+                    name: '',
+                    apiKey: '',
+                    appId: '',
+                    apiUrl: ''
+                });
+
+                // 国际化函数
+                const t = (key) => {
+                    return i18n[currentLanguage.value][key] || key;
+                };
+
+                // 加载配置列表
+                const loadConfigs = () => {
+                    const saved = localStorage.getItem('chatConfigs');
+                    if (saved) {
+                        configList.value = JSON.parse(saved);
+                    }
+                    const currentId = localStorage.getItem('currentConfigId');
+                    if (currentId) {
+                        currentConfig.value = configList.value.find(c => c.id == currentId);
+                    }
+                };
+                
+                // 保存配置列表
+                const saveConfigs = () => {
+                    localStorage.setItem('chatConfigs', JSON.stringify(configList.value));
+                    if (currentConfig.value) {
+                        localStorage.setItem('currentConfigId', currentConfig.value.id);
+                    }
+                };
+                
+                // 监听配置变化
+                const { watch } = Vue;
+                watch([configList, currentConfig], () => {
+                    saveConfigs();
+                }, { deep: true });
+
+                // 加载消息历史
+                const loadMessages = async () => {
+                    try {
+                        const response = await axios.get('http://localhost:3001/api/messages');
+                        messages.value = response.data;
+                        await nextTick();
+                        scrollToBottom();
+                    } catch (error) {
+                        console.error('加载消息失败:', error);
+                    }
+                };
+
+                // 配置管理方法
+                const showAddConfigDialog = () => {
+                    isEditMode.value = false;
+                    dialogConfig.value = {
+                        id: null,
+                        name: '',
+                        apiKey: '',
+                        appId: '',
+                        apiUrl: ''
+                    };
+                    configDialogVisible.value = true;
+                };
+
+                const editConfig = (config) => {
+                    isEditMode.value = true;
+                    dialogConfig.value = { ...config };
+                    configDialogVisible.value = true;
+                };
+
+                const saveConfigDialog = () => {
+                    if (!dialogConfig.value.name || !dialogConfig.value.apiKey) {
+                        ElMessage.warning('请填写配置名称和API Key');
+                        return;
+                    }
+                    if (isEditMode.value) {
+                        const index = configList.value.findIndex(c => c.id === dialogConfig.value.id);
+                        if (index !== -1) {
+                            configList.value[index] = { ...dialogConfig.value };
+                        }
+                    } else {
+                        dialogConfig.value.id = Date.now();
+                        configList.value.push({ ...dialogConfig.value });
+                    }
+                    configDialogVisible.value = false;
+                    ElMessage.success('配置已保存');
+                };
+
+                const deleteConfig = (configId) => {
+                    ElMessageBox.confirm('确定要删除这个配置吗？', '确认', {
+                        type: 'warning'
+                    }).then(() => {
+                        configList.value = configList.value.filter(c => c.id !== configId);
+                        if (currentConfig.value?.id === configId) {
+                            currentConfig.value = null;
+                        }
+                        ElMessage.success('配置已删除');
+                    }).catch(() => {});
+                };
+
+                const selectConfig = (config) => {
+                    currentConfig.value = config;
+                    localStorage.setItem('currentConfigId', config.id);
+                    ElMessage.success('配置已选择');
+                };
+
+                // 发送消息
+                const sendMessage = async () => {
+                    if (!newMessage.value.trim()) return;
+                    if (!currentConfig.value || !currentConfig.value.apiKey) {
+                        ElMessage.warning('请先选择配置并设置API Key');
+                        return;
+                    }
+
+                    const userMessage = {
+                        id: Date.now(),
+                        role: 'user',
+                        content: newMessage.value,
+                        timestamp: new Date().toISOString()
+                    };
+
+                    messages.value.push(userMessage);
+                    const messageToSend = newMessage.value;
+                    newMessage.value = '';
+                    isLoading.value = true;
+
+                    await nextTick();
+                    scrollToBottom();
+
+                    try {
+                        const response = await axios.post('http://localhost:3001/api/chat', {
+                            message: messageToSend,
+                            config: {
+                                apiKey: currentConfig.value.apiKey,
+                                appId: currentConfig.value.appId,
+                                apiUrl: currentConfig.value.apiUrl
+                            }
+                        });
+
+                        const assistantMessage = {
+                            id: Date.now() + 1,
+                            role: 'assistant',
+                            content: response.data.response,
+                            timestamp: new Date().toISOString()
+                        };
+
+                        messages.value.push(assistantMessage);
+                        await nextTick();
+                        scrollToBottom();
+                    } catch (error) {
+                        console.error('发送消息失败:', error);
+                        ElMessage.error(t('send_failed'));
+                    } finally {
+                        isLoading.value = false;
+                    }
+                };
+
+                // 处理回车键
+                const handleEnter = (event) => {
+                    if (!event.shiftKey) {
+                        sendMessage();
+                    }
+                };
+
+                // 清空聊天
+                const clearMessages = async () => {
+                    try {
+                        await ElMessageBox.confirm('确定要清空所有聊天记录吗？', '确认', {
+                            type: 'warning'
+                        });
+                        await axios.delete('http://localhost:3001/api/messages');
+                        messages.value = [];
+                        ElMessage.success(t('chat_cleared'));
+                    } catch (error) {
+                        if (error !== 'cancel') {
+                            console.error('清空消息失败:', error);
+                        }
+                    }
+                };
+
+                // 导出聊天记录
+                const exportMessages = () => {
+                    const data = JSON.stringify(messages.value, null, 2);
+                    const blob = new Blob([data], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `chat-history-${new Date().toISOString().split('T')[0]}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    ElMessage.success(t('chat_exported'));
+                };
+
+                // 切换语言
+                const changeLanguage = (lang) => {
+                    currentLanguage.value = lang;
+                    localStorage.setItem('language', lang);
+                };
+
+                // 滚动到底部
+                const scrollToBottom = () => {
+                    if (messagesContainer.value) {
+                        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+                    }
+                };
+
+                // 清理所有配置
+                const clearAllConfigs = async () => {
+                    try {
+                        await ElMessageBox.confirm('确定要删除所有配置吗？此操作不可恢复。', '确认', {
+                            type: 'warning'
+                        });
+                        localStorage.removeItem('configList');
+                        localStorage.removeItem('currentConfigId');
+                        configList.value = [];
+                        currentConfig.value = null;
+                        ElMessage.success('所有配置已清理');
+                    } catch (error) {
+                        if (error !== 'cancel') {
+                            console.error('清理配置失败:', error);
+                        }
+                    }
+                };
+
+                // 初始化
+                onMounted(async () => {
+                    const savedLanguage = localStorage.getItem('language');
+                    if (savedLanguage) {
+                        currentLanguage.value = savedLanguage;
+                    }
+                    loadConfigs();
+                    await loadMessages();
+                });
+
+                return {
+                    messages,
+                    newMessage,
+                    isLoading,
+                    currentLanguage,
+                    messagesContainer,
+                    configList,
+                    currentConfig,
+                    configDialogVisible,
+                    isEditMode,
+                    dialogConfig,
+                    t,
+                    showAddConfigDialog,
+                    editConfig,
+                    saveConfigDialog,
+                    deleteConfig,
+                    selectConfig,
+                    sendMessage,
+                    handleEnter,
+                    clearMessages,
+                    exportMessages,
+                    changeLanguage,
+                    clearAllConfigs
+                };
+            }
+        });
+
+        // 注册Element Plus图标
+        for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
+            app.component(key, component);
+        }
+
+        app.use(ElementPlus);
+        app.mount('#app');
+    </script>
+</body>
+</html>
